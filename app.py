@@ -1,142 +1,66 @@
-```html
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QAMAR KAIF</title>
+import os
+from flask import Flask, render_template, request, jsonify
+from flask_mysqldb import MySQL
+from dotenv import load_dotenv
 
-    <style>
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
+load_dotenv()  # ✅ Load from .env
 
-        body {
-            font-family: Arial, sans-serif;
-            background: linear-gradient(135deg, #0f172a, #1e3a8a);
-            min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            color: white;
-        }
+app = Flask(__name__)
 
-        .container {
-            width: 90%;
-            max-width: 650px;
-            background: rgba(255, 255, 255, 0.10);
-            padding: 40px;
-            border-radius: 20px;
-            text-align: center;
-            box-shadow: 0 10px 35px rgba(0, 0, 0, 0.35);
-            backdrop-filter: blur(10px);
-        }
+# ✅ Print for debug
+print("✅ DB Config:")
+print("Host:", os.environ.get('MYSQL_HOST'))
+print("User:", os.environ.get('MYSQL_USER'))
+print("Pass:", os.environ.get('MYSQL_PASSWORD'))
+print("DB:  ", os.environ.get('MYSQL_DB'))
 
-        h1 {
-            font-size: 42px;
-            letter-spacing: 3px;
-            margin-bottom: 10px;
-        }
+# ✅ Config from env
+app.config['MYSQL_HOST'] = os.environ.get('MYSQL_HOST', 'localhost')
+app.config['MYSQL_USER'] = os.environ.get('MYSQL_USER', 'default_user')
+app.config['MYSQL_PASSWORD'] = os.environ.get('MYSQL_PASSWORD', 'default_password')
+app.config['MYSQL_DB'] = os.environ.get('MYSQL_DB', 'default_db')
 
-        .subtitle {
-            color: #cbd5e1;
-            margin-bottom: 30px;
-            font-size: 16px;
-        }
+mysql = MySQL(app)
 
-        form {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 30px;
-        }
+def init_db():
+    with app.app_context():
+        try:
+            cur = mysql.connection.cursor()
+            cur.execute('''
+                CREATE TABLE IF NOT EXISTS messages (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    message TEXT
+                );
+            ''')
+            mysql.connection.commit()
+            cur.close()
+            print("✅ Table created or already exists.")
+        except Exception as e:
+            print("❌ DB init error:", e)
 
-        input {
-            flex: 1;
-            padding: 14px;
-            border: none;
-            border-radius: 10px;
-            outline: none;
-            font-size: 15px;
-        }
+@app.route('/')
+def hello():
+    try:
+        cur = mysql.connection.cursor()
+        cur.execute('SELECT message FROM messages')
+        messages = cur.fetchall()
+        cur.close()
+        return render_template('index.html', messages=messages)
+    except Exception as e:
+        return f"❌ Error loading messages: {e}"
 
-        button {
-            padding: 14px 22px;
-            border: none;
-            border-radius: 10px;
-            background: #38bdf8;
-            color: #0f172a;
-            font-weight: bold;
-            cursor: pointer;
-        }
+@app.route('/submit', methods=['POST'])
+def submit():
+    try:
+        new_message = request.form.get('new_message')
+        cur = mysql.connection.cursor()
+        cur.execute('INSERT INTO messages (message) VALUES (%s)', [new_message])
+        mysql.connection.commit()
+        cur.close()
+        return jsonify({'message': new_message})
+    except Exception as e:
+        return f"❌ Error submitting message: {e}"
 
-        button:hover {
-            background: #7dd3fc;
-        }
-
-        h2 {
-            margin-bottom: 15px;
-            font-size: 22px;
-        }
-
-        ul {
-            list-style: none;
-        }
-
-        li {
-            background: rgba(255, 255, 255, 0.12);
-            margin: 8px 0;
-            padding: 12px;
-            border-radius: 8px;
-            text-align: left;
-        }
-
-        .footer {
-            margin-top: 25px;
-            font-size: 13px;
-            color: #94a3b8;
-        }
-    </style>
-</head>
-
-<body>
-
-    <div class="container">
-
-        <h1>QAMAR KAIF</h1>
-
-        <p class="subtitle">
-            Welcome to my Flask Application
-        </p>
-
-        <form action="/submit" method="POST">
-            <input
-                type="text"
-                name="new_message"
-                placeholder="Enter your message..."
-                required
-            >
-
-            <button type="submit">Submit</button>
-        </form>
-
-        <h2>Messages</h2>
-
-        <ul>
-            {% for message in messages %}
-                <li>{{ message[0] }}</li>
-            {% else %}
-                <li>No messages yet.</li>
-            {% endfor %}
-        </ul>
-
-        <div class="footer">
-            Flask + MySQL Application
-        </div>
-
-    </div>
-
-</body>
-</html>
-```
+if __name__ == '__main__':
+    init_db()
+    app.run(host='0.0.0.0', port=5000, debug=Tru
